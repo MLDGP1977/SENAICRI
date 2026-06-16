@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard de Receitas 2025 vs 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
+            background-color: #F3F2F1; /* Cor de fundo clássica do Power BI canvas */
+            color: #252423;
+            -webkit-tap-highlight-color: transparent;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F3F2F1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #C8C6C4;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #A19F9D;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .pbi-card {
+            background: #FFFFFF;
+            border: 1px solid #E1DFDD;
+            box-shadow: 0px 1.6px 3.6px rgba(0, 0, 0, 0.13), 0px 0.3px 0.9px rgba(0, 0, 0, 0.11);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .pbi-card:hover {
+            box-shadow: 0px 3.2px 7.2px rgba(0, 0, 0, 0.13), 0px 0.6px 1.8px rgba(0, 0, 0, 0.11);
+        }
+        .active-tab {
+            background-color: #FFFFFF !important;
+            border-top: 3px solid #118DFF !important;
+            color: #118DFF !important;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none">
+
+    <!-- BARRA DE TOPO (Power BI Header adaptado) -->
+    <header class="bg-[#1f1f1f] text-white px-3 md:px-4 py-2.5 flex items-center justify-between shadow-md shrink-0 z-30">
+        <div class="flex items-center gap-2 md:gap-3 min-w-0">
+            <!-- Logo -->
+    <img
+        src="https://raw.githubusercontent.com/MLDGP1977/SENAICRI/main/senai-logo.png"
+        alt="SENAI"
+        class="h-4 md:h-5 w-auto"
+    >
+</div>
+            <div class="min-w-0">
+                <h1 class="text-xs md:text-sm font-semibold tracking-wide flex items-center gap-1.5 truncate">
+                    Performance Comercial 2025 vs 2026
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 md:gap-2 shrink-0">
+            <!-- Indicador de origem dos dados comprimido em mobile -->
+            <div id="dataSourceBadge" class="bg-blue-950 text-blue-300 text-[9px] md:text-xs px-2 py-1 rounded-full border border-blue-800 flex items-center gap-1 md:gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                <span class="hidden sm:inline">Demonstração</span>
+                <span class="inline sm:hidden">Demo</span>
+            </div>
+            
+            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="bg-[#118DFF] hover:bg-[#12239E] text-white text-[10px] md:text-xs font-medium px-2.5 py-1.5 rounded flex items-center gap-1 transition touch-manipulation">
+                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> 
+                <span class="hidden sm:inline">Carregar CSVs</span>
+                <span class="inline sm:hidden">Carregar</span>
+            </button>
+            <button onclick="resetToDemo()" class="bg-[#323130] hover:bg-[#484644] text-gray-300 text-[10px] md:text-xs px-2 py-1.5 rounded border border-[#484644] hidden xs:block transition">
+                Reiniciar
+            </button>
+        </div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL DO DASHBOARD (Layout Split) -->
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- BACKDROP PARA FILTROS NO MOBILE (fecha ao clicar fora) -->
+        <div id="filterBackdrop" class="fixed inset-0 bg-black/50 z-30 hidden opacity-0 transition-opacity duration-300 md:hidden" onclick="toggleFilters()"></div>
+        <!-- PAINEL DE FILTROS LATERAL (Comportamento de Drawer para Mobile e Sidebar para Desktop) -->
+        <aside id="filterPane" class="fixed md:relative top-0 bottom-0 left-0 w-72 md:w-64 bg-white border-r border-[#E1DFDD] flex flex-col transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0 z-40 shrink-0 h-full">
+            <!-- Cabeçalho do Painel de Filtros -->
+            <div class="p-3 border-b border-[#E1DFDD] bg-[#F3F2F1] flex items-center justify-between">
+                <span class="text-xs font-bold text-[#323130] uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="filter" class="w-3.5 h-3.5 text-blue-600"></i> Filtros do Relatório
+                </span>
+                <div class="flex items-center gap-3">
+                    <button onclick="clearFilters()" class="text-xs text-blue-600 hover:underline flex items-center gap-0.5 font-medium">
+                        Limpar
+                    </button>
+                    <!-- Botão fechar exclusivo para celular -->
+                    <button onclick="toggleFilters()" class="md:hidden text-gray-500 hover:text-gray-800 p-1 rounded-full hover:bg-gray-200 transition">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scroll de Filtros -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-5">
+                <!-- Toggle de Período Equivalente (YTD) -->
+                <!--  <div class="p-3 bg-blue-50 border border-blue-100 rounded-md">
+                    <label class="flex items-center justify-between cursor-pointer select-none">
+                        <div class="pr-2">
+                            <span class="text-xs font-semibold text-blue-900 block">Análise YTD Equivalente</span>
+                            <span class="text-[10px] text-blue-700 block mt-0.5">Jan-Jun (Meses com dados em 2026)</span>
+                        </div>
+                        <input type="checkbox" id="ytdToggle" onchange="applyFiltersAndRender()" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0">
+                    </label>
+                </div>-->
+
+                <!-- Filtro por Centro de Lucro -->
+                <div>
+                    <label class="text-xs font-semibold text-gray-700 block mb-1.5">Centro de Lucro</label>
+                    <select id="filterProfitCenter" onchange="applyFiltersAndRender()" class="w-full text-xs border border-gray-300 rounded p-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[38px]">
+                        <option value="ALL">Todos os Centros de Lucro</option>
+                    </select>
+                </div>
+
+                <!-- Filtro por Cliente -->
+                <div>
+                    <label class="text-xs font-semibold text-gray-700 block mb-1.5">Pesquisar Cliente</label>
+                    <div class="relative">
+                        <input type="text" id="filterClientSearch" oninput="applyFiltersAndRender()" placeholder="Digite para buscar..." class="w-full text-xs border border-gray-300 rounded p-2 pl-8 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[38px]">
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-2.5 top-2.5"></i>
+                    </div>
+                </div>
+
+                <!-- Filtro por Meses -->
+                <div>
+                    <label class="text-xs font-semibold text-gray-700 block mb-1.5">Meses do Exercício</label>
+                    <div class="grid grid-cols-3 gap-1.5" id="monthSelectorGrid">
+                        <!-- Meses de 01 a 12 (carregados dinamicamente) -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rodapé de Filtros com Status -->
+            <div class="p-3 bg-[#F3F2F1] border-t border-[#E1DFDD] text-[10px] text-gray-500">
+                <span id="filteredCountText">Filtrando: 0 de 0 registros</span>
+            </div>
+        </aside>
+
+        <!-- BOTÃO FLUTUANTE PARA ABRIR FILTROS NO CELULAR (Com posicionamento otimizado) -->
+        <button onclick="toggleFilters()" class="fixed bottom-20 right-4 md:hidden bg-[#118DFF] text-white rounded-full shadow-2xl z-30 p-3.5 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2 border border-blue-400" id="toggleFilterBtn">
+            <i data-lucide="filter" class="w-5 h-5" id="toggleFilterIcon"></i>
+            <span class="text-xs font-semibold">Filtros</span>
+        </button>
+
+        <!-- ÁREA CENTRAL DO CANVAS (Onde os relatórios vivem) -->
+        <main class="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6" id="dashboardCanvas">
+
+            <!-- ALERTA DE MODO DEMONSTRAÇÃO COM OPÇÃO DE IMPORTAR -->
+            <div id="demoBanner" class="bg-amber-50 border border-amber-200 rounded-md p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-800 text-xs">
+                <div class="flex items-start sm:items-center gap-2.5">
+                    <i data-lucide="info" class="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5 sm:mt-0"></i>
+                    <span>Exibindo <strong>dados demonstrativos</strong>. Carregue as suas planilhas de faturamento de 2025 e 2026 para uma análise personalizada.</span>
+                </div>
+                <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-semibold px-4 py-1.5 rounded transition text-center shrink-0 shadow-xs touch-manipulation">
+                    Subir Ficheiros
+                </button>
+            </div>
+
+            <!-- ================= ABA 1: VISÃO GERAL COMPARATIVA ================= -->
+            <div id="tabContent_visao_geral" class="tab-pane space-y-4 md:space-y-6">
+                
+                <!-- CARTÕES DE KPI (Responsivos: Adaptação de grelha por largura de ecrã) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                    
+                    <!-- KPI 1: Faturamento 2025 -->
+                    <div class="pbi-card p-4 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-[#12239E]"></div>
+                        <div class="text-[10px] md:text-xs text-gray-500 font-medium uppercase tracking-wider flex items-center justify-between">
+                            <span>Receita Total 2025</span>
+                            <i data-lucide="trending-up" class="w-3.5 h-3.5 text-blue-800"></i>
+                        </div>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span class="text-xl md:text-2xl font-bold text-[#1f1f1f] tracking-tight" id="kpiRevenue2025">R$ 0,00</span>
+                        </div>
+                        <div class="text-[9px] md:text-[10px] text-gray-400 mt-1" id="kpiSubtext2025">
+                            Ano completo acumulado
+                        </div>
+                    </div>
+
+                    <!-- KPI 2: Faturamento 2026 -->
+                    <div class="pbi-card p-4 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-[#118DFF]"></div>
+                        <div class="text-[10px] md:text-xs text-gray-500 font-medium uppercase tracking-wider flex items-center justify-between">
+                            <span id="kpiTitle2026">Receita Acumulada 2026</span>
+                            <i data-lucide="activity" class="w-3.5 h-3.5 text-sky-500"></i>
+                        </div>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span class="text-xl md:text-2xl font-bold text-[#1f1f1f] tracking-tight" id="kpiRevenue2026">R$ 0,00</span>
+                        </div>
+                        <div class="text-[9px] md:text-[10px] text-gray-400 mt-1" id="kpiSubtext2026">
+                            Dados até Junho/2026
+                        </div>
+                    </div>
+
+                    <!-- KPI 3: Desempenho / Crescimento (YoY YTD) -->
+                    <div class="pbi-card p-4 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-teal-500" id="kpiGrowthColor"></div>
+                        <div class="text-[10px] md:text-xs text-gray-500 font-medium uppercase tracking-wider flex items-center justify-between">
+                            <span>Crescimento YoY</span>
+                            <i data-lucide="percent" class="w-3.5 h-3.5 text-teal-600"></i>
+                        </div>
+                        <div class="mt-1 flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+                            <span class="text-xl md:text-2xl font-bold" id="kpiGrowthPct">0.0%</span>
+                            <span class="text-[10px] md:text-xs flex items-center" id="kpiGrowthBadge">
+                                <i data-lucide="arrow-up" class="w-3 h-3 mr-0.5"></i> +0.0%
+                            </span>
+                        </div>
+                        <div class="text-[9px] md:text-[10px] text-gray-400 mt-1" id="kpiGrowthSubtext">
+                            Meses correspondentes
+                        </div>
+                    </div>
+
+                    <!-- KPI 4: Diferença Absoluta -->
+                    <div class="pbi-card p-4 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
+                        <div class="text-[10px] md:text-xs text-gray-500 font-medium uppercase tracking-wider flex items-center justify-between">
+                            <span>Diferença Líquida</span>
+                            <i data-lucide="dollar-sign" class="w-3.5 h-3.5 text-amber-600"></i>
+                        </div>
+                        <div class="mt-1 flex items-baseline gap-1.5">
+                            <span class="text-xl md:text-2xl font-bold text-[#1f1f1f] tracking-tight" id="kpiDifference">R$ 0,00</span>
+                        </div>
+                        <div class="text-[9px] md:text-[10px] text-gray-400 mt-1" id="kpiDifferenceSubtext">
+                            Evolução absoluta
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- GRÁFICOS DE VISÃO GERAL -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                    <!-- Evolução Mensal -->
+                    <div class="pbi-card p-4 lg:col-span-2 flex flex-col justify-between">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-2.5 mb-4 gap-2">
+                            <div>
+                                <h3 class="text-xs md:text-sm font-semibold text-gray-800">Evolução Mensal de Receita</h3>
+                                <p class="text-[10px] md:text-[11px] text-gray-400">Curva comparativa direta por exercício</p>
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px] md:text-xs text-gray-500">
+                                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-[#12239E] rounded-full"></span> 2025</span>
+                                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 bg-[#118DFF] rounded-full"></span> 2026</span>
+                            </div>
+                        </div>
+                        <div class="h-60 sm:h-72 md:h-80 w-full relative">
+                            <canvas id="chartMonthlyCompare"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Distribuição por Centro de Lucro -->
+                    <div class="pbi-card p-4 flex flex-col justify-between">
+                        <div class="border-b border-gray-100 pb-2.5 mb-4">
+                            <h3 class="text-xs md:text-sm font-semibold text-gray-800">Participação por Centro de Lucro</h3>
+                            <p class="text-[10px] md:text-[11px] text-gray-400">Distribuição consolidada dos períodos ativos</p>
+                        </div>
+                        <div class="h-60 sm:h-72 md:h-80 w-full relative flex items-center justify-center">
+                            <canvas id="chartProfitCenterShare"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEÇÃO DE ANÁLISE DE MAIORES CLIENTES -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <!-- Maiores Clientes de 2025 -->
+                    <div class="pbi-card p-4">
+                        <h4 class="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top Clientes em 2025</h4>
+                        <div class="space-y-2" id="topClients2025List">
+                            <!-- Gerado dinamicamente -->
+                        </div>
+                    </div>
+                    <!-- Maiores Clientes de 2026 -->
+                    <div class="pbi-card p-4">
+                        <h4 class="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Top Clientes em 2026 (YTD)</h4>
+                        <div class="space-y-2" id="topClients2026List">
+                            <!-- Gerado dinamicamente -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ABA 2: ANÁLISE DE CLIENTES E PRODUTOS ================= -->
+            <div id="tabContent_clientes" class="tab-pane hidden space-y-4 md:space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                    <!-- Tabela Completa Rank Clientes -->
+                    <div class="pbi-card p-4 lg:col-span-2">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-3 mb-4 gap-2.5">
+                            <div>
+                                <h3 class="text-xs md:text-sm font-semibold text-gray-800">Matriz de Clientes e Crescimento YoY</h3>
+                                <p class="text-[10px] md:text-[11px] text-gray-400">Comparação detalhada de faturamento por cliente</p>
+                            </div>
+                            <input type="text" id="clientTableSearch" oninput="renderClientMatrix()" placeholder="Filtrar cliente..." class="text-xs border border-gray-300 rounded p-2 px-3 w-full sm:w-48 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[38px]">
+                        </div>
+                        
+                        <!-- Rolagem horizontal segura para telemóveis com indicador visual -->
+                        <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 max-h-[350px] md:max-h-[450px]">
+                            <table class="min-w-[650px] md:min-w-full text-xs text-left">
+                                <thead class="bg-[#F3F2F1] text-gray-600 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="p-2.5 font-semibold">Cliente</th>
+                                        <th class="p-2.5 font-semibold text-right">Faturamento 2025</th>
+                                        <th class="p-2.5 font-semibold text-right">Faturamento 2026</th>
+                                        <th class="p-2.5 font-semibold text-right">Diferença</th>
+                                        <th class="p-2.5 font-semibold text-center">YoY%</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientMatrixTableBody" class="divide-y divide-gray-100">
+                                    <!-- Gerado dinamicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-2 text-right md:hidden">
+                            <span class="text-[10px] text-gray-400 italic">Deslize para o lado para ver todos os dados ➔</span>
+                        </div>
+                    </div>
+
+                    <!-- Faturamento por Material / Portfólio -->
+                    <div class="pbi-card p-4">
+                        <div class="border-b border-gray-100 pb-3 mb-4">
+                            <h3 class="text-xs md:text-sm font-semibold text-gray-800">Receita por Código de Material</h3>
+                            <p class="text-[10px] md:text-[11px] text-gray-400">Classificação das maiores receitas por produto</p>
+                        </div>
+                        <div class="h-64 sm:h-[350px] md:h-[400px] relative">
+                            <canvas id="chartMaterialRevenue"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ABA 3: DETALHAMENTO MENSAL ================= -->
+            <div id="tabContent_mensal" class="tab-pane hidden space-y-4 md:space-y-6">
+                <!-- Gráfico de Área Acumulada no Ano -->
+                <div class="pbi-card p-4">
+                    <div class="border-b border-gray-100 pb-2.5 mb-4">
+                        <h3 class="text-xs md:text-sm font-semibold text-gray-800">Crescimento Acumulado do Ano (YTD)</h3>
+                        <p class="text-[10px] md:text-[11px] text-gray-400">Comparativo acumulado mês a mês (R$ acumulados)</p>
+                    </div>
+                    <div class="h-60 sm:h-72 md:h-80 w-full relative">
+                        <canvas id="chartCumulativeCompare"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tabela de Sazonalidade (Matriz Mês x Ano) com rolagem fluida -->
+                <div class="pbi-card p-4">
+                    <h3 class="text-xs md:text-sm font-semibold text-gray-800 mb-3">Tabela Comparativa de Sazonalidade</h3>
+                    <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                        <table class="min-w-[900px] md:min-w-full text-xs text-center border-collapse">
+                            <thead>
+                                <tr class="bg-[#1f1f1f] text-white">
+                                    <th class="p-2.5 border border-gray-700 text-left">Exercício</th>
+                                    <th class="p-2.5 border border-gray-700">Jan</th>
+                                    <th class="p-2.5 border border-gray-700">Fev</th>
+                                    <th class="p-2.5 border border-gray-700">Mar</th>
+                                    <th class="p-2.5 border border-gray-700">Abr</th>
+                                    <th class="p-2.5 border border-gray-700">Mai</th>
+                                    <th class="p-2.5 border border-gray-700">Jun</th>
+                                    <th class="p-2.5 border border-gray-700">Jul</th>
+                                    <th class="p-2.5 border border-gray-700">Ago</th>
+                                    <th class="p-2.5 border border-gray-700">Set</th>
+                                    <th class="p-2.5 border border-gray-700">Out</th>
+                                    <th class="p-2.5 border border-gray-700">Nov</th>
+                                    <th class="p-2.5 border border-gray-700">Dez</th>
+                                    <th class="p-2.5 border border-gray-700 bg-blue-900 font-bold">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="seasonalityTableBody">
+                                <!-- Gerado dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2 text-right md:hidden">
+                        <span class="text-[10px] text-gray-400 italic">Deslize para o lado para ver todos os meses ➔</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ABA 4: BASE DE DADOS (VISUALIZADOR) ================= -->
+            <div id="tabContent_base_dados" class="tab-pane hidden space-y-4 md:space-y-6">
+                <div class="pbi-card p-4">
+                    <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-gray-100 pb-3 mb-4">
+                        <div>
+                            <h3 class="text-xs md:text-sm font-semibold text-gray-800">Visualizador de Transações</h3>
+                            <p class="text-[10px] md:text-[11px] text-gray-400">Pesquisa em todas as linhas de faturamento consolidadas</p>
+                        </div>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                            <input type="text" id="rawTableSearch" oninput="renderRawTable()" placeholder="Pesquisar..." class="text-xs border border-gray-300 rounded p-2 px-3 w-full sm:w-48 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[38px]">
+                            <select id="rawTableYearFilter" onchange="renderRawTable()" class="text-xs border border-gray-300 rounded p-2 bg-white w-full sm:w-auto min-h-[38px]">
+                                <option value="ALL">Ambos os anos</option>
+                                <option value="2025">Somente 2025</option>
+                                <option value="2026">Somente 2026</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 max-h-[400px] md:max-h-[500px]">
+                        <table class="min-w-[650px] md:min-w-full text-xs text-left">
+                            <thead class="bg-[#F3F2F1] text-gray-600 sticky top-0 z-10">
+                                <tr>
+                                    <th class="p-2.5 border-b">Ano</th>
+                                    <th class="p-2.5 border-b">Mês</th>
+                                    <th class="p-2.5 border-b">Cliente</th>
+                                    <th class="p-2.5 border-b text-right">Montante</th>
+                                    <th class="p-2.5 border-b">Centro Lucro</th>
+                                    <th class="p-2.5 border-b">Doc. Vendas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rawTableBody" class="divide-y divide-gray-100">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500 mt-2">
+                        <span id="rawTableCount">Mostrando 0 de 0 registros</span>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- NAVEGAÇÃO DE PÁGINA (Aba inferior deslizante com área de toque aumentada) -->
+    <footer class="bg-[#E1DFDD] border-t border-[#C8C6C4] px-2 md:px-4 py-2 flex items-center gap-1 shrink-0 z-30 overflow-hidden">
+        <div class="hidden md:flex items-center gap-1 mr-4 border-r border-[#C8C6C4] pr-4 shrink-0">
+            <span class="text-xs text-gray-500 font-bold tracking-wide flex items-center gap-1.5 select-none">
+                PÁGINAS DO RELATÓRIO
+            </span>
+        </div>
+        
+        <!-- Barra de abas com rolagem suave por touch e estilo nativo do Power BI -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full scroll-smooth">
+            <!-- Aba 1 -->
+            <button onclick="switchTab('visao_geral')" id="tabBtn_visao_geral" class="px-3.5 py-2.5 text-xs font-semibold text-gray-700 bg-gray-200 border-t-3 border-transparent hover:bg-white hover:text-gray-900 transition-all rounded-t flex items-center gap-2 shrink-0 active-tab min-h-[40px] touch-manipulation">
+                <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Visão Geral
+            </button>
+            <!-- Aba 2 -->
+            <button onclick="switchTab('clientes')" id="tabBtn_clientes" class="px-3.5 py-2.5 text-xs font-semibold text-gray-700 bg-gray-200 border-t-3 border-transparent hover:bg-white hover:text-gray-900 transition-all rounded-t flex items-center gap-2 shrink-0 min-h-[40px] touch-manipulation">
+                <i data-lucide="users" class="w-4 h-4"></i> Clientes & Materiais
+            </button>
+            <!-- Aba 3 -->
+            <button onclick="switchTab('mensal')" id="tabBtn_mensal" class="px-3.5 py-2.5 text-xs font-semibold text-gray-700 bg-gray-200 border-t-3 border-transparent hover:bg-white hover:text-gray-900 transition-all rounded-t flex items-center gap-2 shrink-0 min-h-[40px] touch-manipulation">
+                <i data-lucide="calendar" class="w-4 h-4"></i> Sazonalidade
+            </button>
+            <!-- Aba 4 -->
+            <button onclick="switchTab('base_dados')" id="tabBtn_base_dados" class="px-3.5 py-2.5 text-xs font-semibold text-gray-700 bg-gray-200 border-t-3 border-transparent hover:bg-white hover:text-gray-900 transition-all rounded-t flex items-center gap-2 shrink-0 min-h-[40px] touch-manipulation">
+                <i data-lucide="database" class="w-4 h-4"></i> Base Tabela
+            </button>
+        </div>
+    </footer>
+
+    <!-- MODAL DE UPLOAD DE ARQUIVOS (Totalmente adaptável a dispositivos móveis) -->
+    <div id="uploadModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-lg shadow-2xl max-w-lg w-full p-5 md:p-6 relative max-h-[95vh] flex flex-col">
+            <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+
+            <div class="flex items-center gap-3 border-b border-gray-100 pb-3 mb-4 shrink-0">
+                <div class="p-2 bg-blue-100 text-blue-600 rounded">
+                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm md:text-base font-bold text-gray-800">Carregar Planilhas (CSVs)</h3>
+                    <p class="text-xs text-gray-500">Selecione os ficheiros para atualizar o dashboard localmente.</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 flex-1 overflow-y-auto pr-1">
+                <!-- Zona do Arquivo 2025 -->
+                <div class="border-2 border-dashed border-gray-200 rounded-lg p-4 hover:border-blue-400 transition bg-gray-50 flex flex-col items-center justify-center text-center relative min-h-[110px]" id="dropzone2025">
+                    <i data-lucide="file-text" class="w-8 h-8 text-blue-400 mb-1.5"></i>
+                    <span class="text-xs font-bold text-gray-700 block" id="fileLabel2025">Dados de 2025 (.CSV)</span>
+                    <span class="text-[10px] text-gray-400 block mb-1">export 23_01_26_2025.csv</span>
+                    <input type="file" id="inputCSV2025" accept=".csv" onchange="handleFileSelected(2025, this)" class="absolute inset-0 opacity-0 cursor-pointer">
+                    <div id="fileStatus2025" class="hidden text-xs text-green-600 font-semibold flex items-center gap-1 mt-1">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i> Ficheiro carregado
+                    </div>
+                </div>
+
+                <!-- Zona do Arquivo 2026 -->
+                <div class="border-2 border-dashed border-gray-200 rounded-lg p-4 hover:border-blue-400 transition bg-gray-50 flex flex-col items-center justify-center text-center relative min-h-[110px]" id="dropzone2026">
+                    <i data-lucide="file-text" class="w-8 h-8 text-sky-400 mb-1.5"></i>
+                    <span class="text-xs font-bold text-gray-700 block" id="fileLabel2026">Dados de 2026 (.CSV)</span>
+                    <span class="text-[10px] text-gray-400 block mb-1">EXPORT_2026_15_06_26.csv</span>
+                    <input type="file" id="inputCSV2026" accept=".csv" onchange="handleFileSelected(2026, this)" class="absolute inset-0 opacity-0 cursor-pointer">
+                    <div id="fileStatus2026" class="hidden text-xs text-green-600 font-semibold flex items-center gap-1 mt-1">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i> Ficheiro carregado
+                    </div>
+                </div>
+
+                <div class="p-3 bg-blue-50 text-blue-850 rounded text-[11px] leading-relaxed">
+                    <strong class="font-bold block mb-1"><i data-lucide="shield-check" class="w-3.5 h-3.5 inline mr-1 text-blue-600"></i> Segurança de Dados Local:</strong>
+                    Toda a leitura e processamento ocorrem estritamente no seu browser. Os seus dados confidenciais nunca saem do seu dispositivo.
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 mt-5 pt-3 border-t border-gray-100 shrink-0">
+                <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded transition">
+                    Cancelar
+                </button>
+                <button onclick="applyUploadedData()" id="applyUploadsBtn" class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-40 disabled:cursor-not-allowed transition" disabled>
+                    Aplicar Dados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DE INTELIGÊNCIA DO RELATÓRIO -->
+    <script>
+        // Variáveis Globais de Estado
+        let allRecords = []; // Banco de dados unificado
+        let activeFilters = {
+            profitCenter: 'ALL',
+            clientSearch: '',
+            months: new Set(),
+            ytdOnly: false // Padrão falso para carregar 2025 por completo
+        };
+        
+        let loadedFiles = {
+            2025: null,
+            2026: null
+        };
+
+        const APPS_SCRIPT_URL ='https://script.google.com/macros/s/AKfycbwyr8lMA7d4rzpymcnezXPE3DVh9Cmcwszxc0nNggmRAD6tPb0vKO-JYbXSB3U3L6f4/exec';
+        // Instâncias de Gráficos (necessárias para destruição e recreação dinâmica)
+        let chartInstances = {};
+
+        // Dados de Demonstração (Simulados das planilhas reais)
+        const demoData = [
+            // 2025 completo
+            { year: '2025', month: '01', client: 'EMBRAER S.A.', amount: 50200.40, profitCenter: '2063101001', material: '3600429', docSales: '15775862' },
+            { year: '2025', month: '02', client: 'HOSPITAL DAS CLINICAS DA FACULDADE', amount: 140715.58, profitCenter: '2063108001', material: '3600533', docSales: '15718604' },
+            { year: '2025', month: '02', client: 'PREFEITURA MUNICIPAL DE BOTUCATU', amount: 35000.00, profitCenter: '2063108001', material: '3600533', docSales: '15718610' },
+            { year: '2025', month: '03', client: 'EMBRAER S.A.', amount: 46645.71, profitCenter: '2063101001', material: '3600429', docSales: '15775862' },
+            { year: '2025', month: '04', client: 'SERVICO NACIONAL DE APRENDIZAGEM', amount: 20140.00, profitCenter: '2063204011', material: '3600404', docSales: '15818913' },
+            { year: '2025', month: '05', client: 'SAO MANUEL PREFEITURA', amount: 27753.85, profitCenter: '2063107001', material: '3600532', docSales: '15818920' },
+            { year: '2025', month: '05', client: 'FRB- FACULDADES REUNIDAS DE BOTUCAT', amount: 28980.00, profitCenter: '2063108001', material: '3600533', docSales: '15818930' },
+            { year: '2025', month: '06', client: 'EMBRAER S.A.', amount: 45155.20, profitCenter: '2063107001', material: '3600532', docSales: '16636373' },
+            { year: '2025', month: '06', client: 'SAO MANUEL PREFEITURA', amount: 22000.00, profitCenter: '2063107001', material: '3600532', docSales: '16636374' },
+            { year: '2025', month: '07', client: 'EMBRAER S.A.', amount: 45155.20, profitCenter: '2063107001', material: '3600532', docSales: '16636373' },
+            { year: '2025', month: '08', client: 'SERVICO NACIONAL DE APRENDIZAGEM', amount: 20140.00, profitCenter: '2063204011', material: '3600404', docSales: '15818913' },
+            { year: '2025', month: '09', client: 'HOSPITAL DAS CLINICAS DA FACULDADE', amount: 135000.00, profitCenter: '2063108001', material: '3600533', docSales: '15718612' },
+            { year: '2025', month: '10', client: 'EMBRAER S.A.', amount: 48000.00, profitCenter: '2063101001', material: '3600429', docSales: '15775865' },
+            { year: '2025', month: '11', client: 'SAO MANUEL PREFEITURA', amount: 25000.00, profitCenter: '2063107001', material: '3600532', docSales: '15818930' },
+            { year: '2025', month: '12', client: 'FRB- FACULDADES REUNIDAS DE BOTUCAT', amount: 31000.00, profitCenter: '2063108001', material: '3600533', docSales: '15818950' },
+            // 2026 parcial (até Junho)
+            { year: '2026', month: '01', client: 'EMBRAER S.A.', amount: 55000.00, profitCenter: '2063101001', material: '3600429', docSales: '17459104' },
+            { year: '2026', month: '02', client: 'HOSPITAL DAS CLINICAS DA FACULDADE', amount: 148000.00, profitCenter: '2063108001', material: '3600533', docSales: '17601800' },
+            { year: '2026', month: '02', client: 'PREFEITURA MUNICIPAL DE BOTUCATU', amount: 42000.00, profitCenter: '2063108001', material: '3600533', docSales: '17601811' },
+            { year: '2026', month: '03', client: 'EMBRAER S.A.', amount: 35767.74, profitCenter: '2063101001', material: '3600429', docSales: '17459104' },
+            { year: '2026', month: '04', client: 'SERVICO NACIONAL DE APRENDIZAGEM', amount: 15042.68, profitCenter: '2063204011', material: '3600404', docSales: '17352219' },
+            { year: '2026', month: '04', client: 'FRB- FACULDADES REUNIDAS DE BOTUCAT', amount: 28980.00, profitCenter: '2063108001', material: '3600533', docSales: '17601876' },
+            { year: '2026', month: '05', client: 'SAO MANUEL PREFEITURA', amount: 27753.85, profitCenter: '2063107001', material: '3600532', docSales: '17742765' },
+            { year: '2026', month: '05', client: 'PREFEITURA MUNICIPAL DE BOTUCATU', amount: 30000.00, profitCenter: '2063108001', material: '3600533', docSales: '17697980' },
+            { year: '2026', month: '06', client: 'EMBRAER S.A.', amount: 35767.74, profitCenter: '2063101001', material: '3600429', docSales: '17459104' },
+            { year: '2026', month: '06', client: 'SAO MANUEL PREFEITURA', amount: 27753.85, profitCenter: '2063107001', material: '3600532', docSales: '17742765' }
+        ];
+
+        // Inicialização global no carregamento da página
+window.addEventListener('DOMContentLoaded', async () => {
+    lucide.createIcons();
+    const carregou = await carregarDadosDrive();
+if (carregou) {
+    ativarModoReal();
+} else {
+    loadPersistedOrDemoData();
+}
+    setupFilterControls();
+    applyFiltersAndRender();
+});
+
+async function carregarDadosDrive() {
+    try {
+        const response = await fetch(
+            'https://script.google.com/macros/s/AKfycbwyr8lMA7d4rzpymcnezXPE3DVh9Cmcwszxc0nNggmRAD6tPb0vKO-JYbXSB3U3L6f4/exec'
+        );
+
+        const resultado = await response.json();
+        if (!resultado.success) {
+            return false;
+        }
+
+        allRecords = resultado.records || [];
+        localStorage.setItem(
+            'pbi_revenue_dashboard_data',
+            JSON.stringify(allRecords)
+        );
+        localStorage.setItem(
+            'pbi_revenue_dashboard_is_real',
+            'true'
+        );
+        return true;
+    } catch (erro) {
+        console.error(erro);
+        return false;
+    }
+}
+
+        function loadPersistedOrDemoData() {
+            const savedData = localStorage.getItem('pbi_revenue_dashboard_data');
+            const dataIsReal = localStorage.getItem('pbi_revenue_dashboard_is_real');
+            
+            if (savedData && dataIsReal === 'true') {
+                try {
+                    allRecords = JSON.parse(savedData);
+                    document.getElementById('dataSourceBadge').innerHTML = `
+                        <i data-lucide="database" class="w-3 h-3 md:w-3.5 md:h-3.5"></i>
+                        <span class="hidden xs:inline">Dados Reais</span>
+                        <span class="inline xs:hidden">Reais</span>
+                    `;
+                    document.getElementById('dataSourceBadge').className = "bg-green-950 text-green-300 text-[10px] md:text-xs px-2.5 py-1 rounded-full border border-green-800 flex items-center gap-1.5";
+                    document.getElementById('demoBanner').classList.add('hidden');
+                    return;
+                } catch (e) {
+                    console.error("Falha ao ler cache local. Revertendo para dados de demonstração.", e);
+                }
+            }
+            loadDefaultData();
+        }
+
+        function loadDefaultData() {
+            allRecords = JSON.parse(JSON.stringify(demoData));
+            const badge = document.getElementById('dataSourceBadge');
+            if (badge) {
+                badge.innerHTML = `
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse animate-duration-1000"></span>
+                    <span class="hidden xs:inline">Demonstração</span>
+                    <span class="inline xs:hidden">Demo</span>
+                `;
+                badge.className = "bg-blue-950 text-blue-300 text-[10px] md:text-xs px-2.5 py-1 rounded-full border border-blue-800 flex items-center gap-1.5";
+            }
+            const banner = document.getElementById('demoBanner');
+            if (banner) {
+                banner.classList.remove('hidden');
+            }
+        }
+
+        // Sistema de troca de abas com redimensionamento de gráficos
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('footer button').forEach(btn => {
+                btn.classList.remove('active-tab');
+                btn.classList.add('bg-gray-200');
+            });
+
+            document.getElementById(`tabContent_${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tabBtn_${tabId}`);
+            activeBtn.classList.add('active-tab');
+            activeBtn.classList.remove('bg-gray-200');
+
+            // Scroll suave automático da aba selecionada no telemóvel para melhorar navegação
+            activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+            // Pequeno delay para os gráficos renderizarem corretamente com a nova largura do contêiner
+            setTimeout(() => {
+                if (tabId === 'visao_geral') {
+                    renderVisaoGeralCharts();
+                } else if (tabId === 'clientes') {
+                    renderClientesCharts();
+                } else if (tabId === 'mensal') {
+                    renderMensalCharts();
+                }
+            }, 150);
+        }
+
+        // Alternar Painel de Filtros (Estilo Gaveta Lateral no telemóvel)
+        function toggleFilters() {
+            const pane = document.getElementById('filterPane');
+            const backdrop = document.getElementById('filterBackdrop');
+            const isOpen = pane.classList.contains('translate-x-0');
+
+            if (!isOpen) {
+                // Abrir filtros
+                pane.classList.remove('-translate-x-full');
+                pane.classList.add('translate-x-0');
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.add('opacity-100'), 10);
+            } else {
+                // Fechar filtros
+                pane.classList.remove('translate-x-0');
+                pane.classList.add('-translate-x-full');
+                backdrop.classList.remove('opacity-100');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+
+        // Reinicia os dados e limpa uploads locais
+        function resetToDemo() {
+            loadedFiles = { 2025: null, 2026: null };
+            localStorage.removeItem('pbi_revenue_dashboard_data');
+            localStorage.removeItem('pbi_revenue_dashboard_is_real');
+            document.getElementById('fileStatus2025').classList.add('hidden');
+            document.getElementById('fileStatus2026').classList.add('hidden');
+            document.getElementById('fileLabel2025').innerText = "Dados de 2025 (.CSV)";
+            document.getElementById('fileLabel2026').innerText = "Dados de 2026 (.CSV)";
+            document.getElementById('applyUploadsBtn').disabled = true;
+            
+            loadDefaultData();
+            setupFilterControls();
+            applyFiltersAndRender();
+        }
+
+        // Configuração inicial dos botões do seletor de meses
+        function setupFilterControls() {
+            const profitCenters = [...new Set(allRecords.map(r => r.profitCenter))].sort();
+            const selectPC = document.getElementById('filterProfitCenter');
+            selectPC.innerHTML = '<option value="ALL">Todos os Centros de Lucro</option>';
+            profitCenters.forEach(pc => {
+                selectPC.innerHTML += `<option value="${pc}">${pc}</option>`;
+            });
+
+            const monthGrid = document.getElementById('monthSelectorGrid');
+            monthGrid.innerHTML = '';
+            const names = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            for (let i = 1; i <= 12; i++) {
+                const monthStr = i.toString().padStart(2, '0');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.id = `btnMonth_${monthStr}`;
+                btn.innerText = names[i-1];
+                btn.className = "p-2.5 text-xs font-semibold border border-gray-200 bg-white hover:bg-gray-50 rounded text-center transition touch-manipulation min-h-[38px]";
+                btn.onclick = () => toggleMonthFilter(monthStr);
+                monthGrid.appendChild(btn);
+            }
+        }
+
+        function toggleMonthFilter(monthStr) {
+            const btn = document.getElementById(`btnMonth_${monthStr}`);
+            if (activeFilters.months.has(monthStr)) {
+                activeFilters.months.delete(monthStr);
+                btn.className = "p-2.5 text-xs font-semibold border border-gray-200 bg-white hover:bg-gray-50 rounded text-center transition";
+            } else {
+                activeFilters.months.add(monthStr);
+                btn.className = "p-2.5 text-xs font-bold border border-blue-500 bg-blue-50 text-blue-700 rounded text-center transition";
+            }
+            applyFiltersAndRender();
+        }
+
+        function clearFilters() {
+            activeFilters.profitCenter = 'ALL';
+            activeFilters.clientSearch = '';
+            activeFilters.months.clear();
+            activeFilters.ytdOnly = false;
+
+            document.getElementById('filterProfitCenter').value = 'ALL';
+            document.getElementById('filterClientSearch').value = '';
+            //document.getElementById('ytdToggle').checked = false;
+
+            for (let i = 1; i <= 12; i++) {
+                const monthStr = i.toString().padStart(2, '0');
+                const btn = document.getElementById(`btnMonth_${monthStr}`);
+                if (btn) btn.className = "p-2.5 text-xs font-semibold border border-gray-200 bg-white hover:bg-gray-50 rounded text-center transition";
+            }
+
+            applyFiltersAndRender();
+        }
+function applyFiltersAndRender() {
+
+    activeFilters.profitCenter =
+        document.getElementById('filterProfitCenter').value;
+
+    activeFilters.clientSearch =
+        document.getElementById('filterClientSearch')
+        .value.toLowerCase().trim();
+
+   // activeFilters.ytdOnly =        document.getElementById('ytdToggle').checked;
+
+    let filtered = allRecords.filter(rec => {
+
+        if (
+            activeFilters.profitCenter !== 'ALL' &&
+            rec.profitCenter !== activeFilters.profitCenter
+        ) return false;
+
+        if (
+            activeFilters.clientSearch &&
+            !rec.client.toLowerCase()
+            .includes(activeFilters.clientSearch)
+        ) return false;
+
+        if (
+            activeFilters.months.size > 0 &&
+            !activeFilters.months.has(rec.month)
+        ) return false;
+
+        if (
+            activeFilters.ytdOnly &&
+            parseInt(rec.month) > 6
+        ) return false;
+
+        return true;
+
+    });
+    document.getElementById(
+        'filteredCountText'
+    ).innerText =
+        `Filtrando: ${filtered.length} de ${allRecords.length} registros`;
+    calculateKPIs(filtered);
+    renderVisaoGeralCharts(filtered);
+    renderClientesCharts(filtered);
+    renderMensalCharts(filtered);
+    renderRawTable(filtered);
+}
+
+        function calculateKPIs(filteredData) {
+            let rev2025 = 0;
+            let rev2026 = 0;
+
+            filteredData.forEach(r => {
+                if (r.year === '2025') rev2025 += r.amount;
+                if (r.year === '2026') rev2026 += r.amount;
+            });
+
+            document.getElementById('kpiRevenue2025').innerText = formatBRL(rev2025);
+            document.getElementById('kpiRevenue2026').innerText = formatBRL(rev2026);
+
+            const isYtd = activeFilters.ytdOnly;
+            document.getElementById('kpiSubtext2025').innerText = isYtd ? "Período YTD (Jan a Jun)" : "Ano completo acumulado";
+            document.getElementById('kpiSubtext2026').innerText = isYtd ? "Período YTD (Jan a Jun)" : "Todos os dados de 2026";
+            document.getElementById('kpiTitle2026').innerText = isYtd ? "Receita Equivalente 2026 (YTD)" : "Receita Acumulada 2026";
+
+            let growthPct = 0;
+            let diffAbsoluta = rev2026 - rev2025;
+            
+            if (rev2025 > 0) {
+                growthPct = (diffAbsoluta / rev2025) * 100;
+            } else if (rev2026 > 0) {
+                growthPct = 100;
+            }
+
+            const growthPctEl = document.getElementById('kpiGrowthPct');
+            const growthBadgeEl = document.getElementById('kpiGrowthBadge');
+            const kpiGrowthColorEl = document.getElementById('kpiGrowthColor');
+
+            growthPctEl.innerText = `${growthPct.toFixed(1)}%`;
+            document.getElementById('kpiDifference').innerText = formatBRL(diffAbsoluta);
+
+            if (diffAbsoluta >= 0) {
+                growthBadgeEl.className = "text-[10px] md:text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center";
+                growthBadgeEl.innerHTML = `<i data-lucide="arrow-up" class="w-3 h-3 mr-0.5"></i> +${formatBRL(diffAbsoluta)}`;
+                kpiGrowthColorEl.className = "absolute top-0 left-0 w-full h-1 bg-emerald-500";
+                growthPctEl.className = "text-xl md:text-2xl font-bold text-emerald-600";
+            } else {
+                growthBadgeEl.className = "text-[10px] md:text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center";
+                growthBadgeEl.innerHTML = `<i data-lucide="arrow-down" class="w-3 h-3 mr-0.5"></i> ${formatBRL(diffAbsoluta)}`;
+                kpiGrowthColorEl.className = "absolute top-0 left-0 w-full h-1 bg-rose-500";
+                growthPctEl.className = "text-xl md:text-2xl font-bold text-rose-600";
+            }
+            lucide.createIcons();
+        }
+
+        function renderVisaoGeralCharts(filteredData) {
+            if (!filteredData) {
+                applyFiltersAndRender();
+                return;
+            }
+
+            const monthlyData2025 = Array(12).fill(0);
+            const monthlyData2026 = Array(12).fill(0);
+
+            filteredData.forEach(r => {
+                const monthIndex = parseInt(r.month) - 1;
+                if (r.year === '2025') {
+                    monthlyData2025[monthIndex] += r.amount;
+                } else if (r.year === '2026') {
+                    monthlyData2026[monthIndex] += r.amount;
+                }
+            });
+
+            const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+            if (chartInstances.monthly) chartInstances.monthly.destroy();
+
+            const ctxMonthly = document.getElementById('chartMonthlyCompare').getContext('2d');
+            chartInstances.monthly = new Chart(ctxMonthly, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Ano 2025',
+                            data: monthlyData2025,
+                            backgroundColor: 'rgba(18, 35, 158, 0.85)',
+                            borderColor: 'rgb(18, 35, 158)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        },
+                        {
+                            label: 'Ano 2026',
+                            data: monthlyData2026,
+                            backgroundColor: 'rgba(17, 141, 255, 0.85)',
+                            borderColor: 'rgb(17, 141, 255)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: v => formatBRL(v).split(',')[0], // Corta decimais no gráfico pra caber melhor no celular
+                                font: { size: 9 }
+                            },
+                            grid: { color: '#E1DFDD' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+
+            const profitCentersObj = {};
+            filteredData.forEach(r => {
+                profitCentersObj[r.profitCenter] = (profitCentersObj[r.profitCenter] || 0) + r.amount;
+            });
+
+            const pcLabels = Object.keys(profitCentersObj);
+            const pcData = Object.values(profitCentersObj);
+            const pbiColors = ['#118DFF', '#12239E', '#F2C811', '#E66C37', '#113F8C', '#5F6B6D', '#A19F9D'];
+
+            if (chartInstances.profitCenter) chartInstances.profitCenter.destroy();
+
+            const ctxPC = document.getElementById('chartProfitCenterShare').getContext('2d');
+            chartInstances.profitCenter = new Chart(ctxPC, {
+                type: 'doughnut',
+                data: {
+                    labels: pcLabels,
+                    datasets: [{
+                        data: pcData,
+                        backgroundColor: pbiColors.slice(0, pcLabels.length),
+                        borderWidth: 2,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 9 },
+                                boxWidth: 10,
+                                padding: 8
+                            }
+                        }
+                    },
+                    cutout: '55%'
+                }
+            });
+
+            renderTopClientsLists(filteredData);
+        }
+
+        function renderTopClientsLists(filteredData) {
+            const clients2025 = {};
+            const clients2026 = {};
+
+            filteredData.forEach(r => {
+                if (r.year === '2025') {
+                    clients2025[r.client] = (clients2025[r.client] || 0) + r.amount;
+                } else if (r.year === '2026') {
+                    clients2026[r.client] = (clients2026[r.client] || 0) + r.amount;
+                }
+            });
+
+            const arr2025 = Object.entries(clients2025).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            const arr2026 = Object.entries(clients2026).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+            const container2025 = document.getElementById('topClients2025List');
+            container2025.innerHTML = arr2025.length ? '' : '<p class="text-xs text-gray-400 py-3">Nenhum registro encontrado.</p>';
+            arr2025.forEach(([client, value], idx) => {
+                container2025.innerHTML += `
+                    <div class="flex items-center justify-between text-xs p-2 hover:bg-gray-50 rounded transition">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-5 h-5 bg-blue-950 text-blue-200 text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">${idx+1}</span>
+                            <span class="font-medium text-gray-700 truncate">${client}</span>
+                        </div>
+                        <span class="font-bold text-[#1f1f1f] shrink-0 ml-1">${formatBRL(value)}</span>
+                    </div>
+                `;
+            });
+
+            const container2026 = document.getElementById('topClients2026List');
+            container2026.innerHTML = arr2026.length ? '' : '<p class="text-xs text-gray-400 py-3">Nenhum registro encontrado.</p>';
+            arr2026.forEach(([client, value], idx) => {
+                container2026.innerHTML += `
+                    <div class="flex items-center justify-between text-xs p-2 hover:bg-gray-50 rounded transition">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-5 h-5 bg-[#118DFF] text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">${idx+1}</span>
+                            <span class="font-medium text-gray-700 truncate">${client}</span>
+                        </div>
+                        <span class="font-bold text-[#1f1f1f] shrink-0 ml-1">${formatBRL(value)}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function renderClientesCharts(filteredData) {
+            if (!filteredData) return;
+
+            renderClientMatrix(filteredData);
+
+            const materialsObj = {};
+            filteredData.forEach(r => {
+                materialsObj[r.material] = (materialsObj[r.material] || 0) + r.amount;
+            });
+
+            const matLabels = Object.keys(materialsObj).sort((a,b) => materialsObj[b] - materialsObj[a]).slice(0, 10);
+            const matData = matLabels.map(lbl => materialsObj[lbl]);
+
+            if (chartInstances.materials) chartInstances.materials.destroy();
+
+            const ctxMat = document.getElementById('chartMaterialRevenue').getContext('2d');
+            chartInstances.materials = new Chart(ctxMat, {
+                type: 'bar',
+                data: {
+                    labels: matLabels.map(m => `Mat. ${m}`),
+                    datasets: [{
+                        data: matData,
+                        backgroundColor: '#118DFF',
+                        borderRadius: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            ticks: { font: { size: 9 }, callback: v => formatBRL(v).split(',')[0] }
+                        },
+                        y: {
+                            ticks: { font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+        }
+
+function renderClientMatrix(passedData) {
+
+    const data = passedData || allRecords;
+
+    const search =
+        document.getElementById('clientTableSearch')
+        .value.toLowerCase().trim();
+
+    const clientRevenue = {};
+
+    data.forEach(r => {
+
+        if (!clientRevenue[r.client]) {
+
+            clientRevenue[r.client] = {
+                f2025: 0,
+                f2026: 0
+            };
+        }
+
+        if (r.year === '2025')
+            clientRevenue[r.client].f2025 += r.amount;
+
+        if (r.year === '2026')
+            clientRevenue[r.client].f2026 += r.amount;
+    });
+
+    const rows = Object.entries(clientRevenue)
+        .filter(([client]) =>
+            !search ||
+            client.toLowerCase().includes(search)
+        )
+        .sort((a,b) =>
+            (b[1].f2026 + b[1].f2025) -
+            (a[1].f2026 + a[1].f2025)
+        )
+        .slice(0, 300); // limita para performance
+    const tbody =
+        document.getElementById(
+            'clientMatrixTableBody'
+        );
+
+    let html = '';
+
+    rows.forEach(([client, info]) => {
+
+        const diff =
+            info.f2026 - info.f2025;
+
+        const pct =
+            info.f2025 > 0
+            ? (diff / info.f2025) * 100
+            : 100;
+
+        let farol = '';
+
+        if (diff > 0) {
+
+            farol =
+            `<span class="text-emerald-600 font-bold text-[11px]">
+                ▲ +${pct.toFixed(0)}%
+            </span>`;
+
+        } else if (diff < 0) {
+
+            farol =
+            `<span class="text-rose-600 font-bold text-[11px]">
+                ▼ ${pct.toFixed(0)}%
+            </span>`;
+
+        } else {
+
+            farol =
+            `<span class="text-gray-400 font-bold">-</span>`;
+        }
+
+        html += `
+            <tr class="hover:bg-gray-50 transition duration-150">
+                <td class="p-2.5 font-medium text-gray-850 max-w-xs truncate">${client}</td>
+                <td class="p-2.5 text-right font-semibold text-blue-950">${formatBRL(info.f2025)}</td>
+                <td class="p-2.5 text-right font-semibold text-blue-600">${formatBRL(info.f2026)}</td>
+                <td class="p-2.5 text-right font-medium ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${formatBRL(diff)}</td>
+                <td class="p-2.5 text-center">${farol}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+        function renderMensalCharts(filteredData) {
+            if (!filteredData) return;
+
+            const monthly2025 = Array(12).fill(0);
+            const monthly2026 = Array(12).fill(0);
+
+            filteredData.forEach(r => {
+                const monthIdx = parseInt(r.month) - 1;
+                if (r.year === '2025') monthly2025[monthIdx] += r.amount;
+                if (r.year === '2026') monthly2026[monthIdx] += r.amount;
+            });
+
+            const cum2025 = [];
+            const cum2026 = [];
+            let sum25 = 0;
+            let sum26 = 0;
+
+            for (let i = 0; i < 12; i++) {
+                sum25 += monthly2025[i];
+                cum2025.push(sum25);
+                
+                if (activeFilters.ytdOnly && i >= 6) {
+                    cum2026.push(null);
+                } else {
+                    sum26 += monthly2026[i];
+                    cum2026.push(sum26);
+                }
+            }
+
+            if (chartInstances.cumulative) chartInstances.cumulative.destroy();
+
+            const ctxCum = document.getElementById('chartCumulativeCompare').getContext('2d');
+            chartInstances.cumulative = new Chart(ctxCum, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+                    datasets: [
+                        {
+                            label: 'Acumulado 2025',
+                            data: cum2025,
+                            borderColor: '#12239E',
+                            backgroundColor: 'rgba(18, 35, 158, 0.05)',
+                            fill: true,
+                            tension: 0.2,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Acumulado 2026',
+                            data: cum2026,
+                            borderColor: '#118DFF',
+                            backgroundColor: 'rgba(17, 141, 255, 0.1)',
+                            fill: true,
+                            tension: 0.2,
+                            borderWidth: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: { callback: v => formatBRL(v).split(',')[0], font: { size: 9 } }
+                        }
+                    }
+                }
+            });
+
+            const tBody = document.getElementById('seasonalityTableBody');
+            tBody.innerHTML = '';
+
+            let totalRow2025 = 0;
+            let totalRow2026 = 0;
+
+            let row2025HTML = `<tr class="hover:bg-gray-50 transition"><td class="p-2.5 border border-gray-200 text-left font-bold text-blue-900 bg-blue-50">2025</td>`;
+            let row2026HTML = `<tr class="hover:bg-gray-50 transition"><td class="p-2.5 border border-gray-200 text-left font-bold text-sky-900 bg-sky-50">2026</td>`;
+
+            for (let i = 0; i < 12; i++) {
+                const amt25 = monthly2025[i];
+                const amt26 = monthly2026[i];
+
+                totalRow2025 += amt25;
+                if (!activeFilters.ytdOnly || i < 6) {
+                    totalRow2026 += amt26;
+                }
+
+                row2025HTML += `<td class="p-2.5 border border-gray-200 font-semibold">${formatBRL(amt25).split(',')[0]}</td>`;
+                
+                if (activeFilters.ytdOnly && i >= 6) {
+                    row2026HTML += `<td class="p-2.5 border border-gray-200 text-gray-400 bg-gray-50">-</td>`;
+                } else {
+                    row2026HTML += `<td class="p-2.5 border border-gray-200 font-semibold">${formatBRL(amt26).split(',')[0]}</td>`;
+                }
+            }
+
+            row2025HTML += `<td class="p-2.5 border border-gray-200 bg-blue-900 text-white font-bold">${formatBRL(totalRow2025).split(',')[0]}</td></tr>`;
+            row2026HTML += `<td class="p-2.5 border border-gray-200 bg-sky-900 text-white font-bold">${formatBRL(totalRow2026).split(',')[0]}</td></tr>`;
+
+            let varRowHTML = `<tr class="bg-gray-100 font-bold"><td class="p-2.5 border border-gray-200 text-left text-gray-600">Var %</td>`;
+            for (let i = 0; i < 12; i++) {
+                const m25 = monthly2025[i];
+                const m26 = monthly2026[i];
+                
+                if (activeFilters.ytdOnly && i >= 6) {
+                    varRowHTML += `<td class="p-2.5 border border-gray-200 text-gray-400">-</td>`;
+                } else {
+                    const diff = m26 - m25;
+                    const pct = m25 > 0 ? (diff / m25) * 100 : 0;
+                    const color = diff >= 0 ? 'text-emerald-700' : 'text-rose-700';
+                    varRowHTML += `<td class="p-2.5 border border-gray-200 ${color}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
+                }
+            }
+            const diffTot = totalRow2026 - totalRow2025;
+            const pctTot = totalRow2025 > 0 ? (diffTot / totalRow2025) * 100 : 0;
+            const colorTot = diffTot >= 0 ? 'text-emerald-700' : 'text-rose-700';
+            varRowHTML += `<td class="p-2.5 border border-gray-200 bg-gray-200 ${colorTot} font-bold">${pctTot >= 0 ? '+' : ''}${pctTot.toFixed(1)}%</td></tr>`;
+
+            tBody.innerHTML = row2025HTML + row2026HTML + varRowHTML;
+        }
+
+        function renderRawTable(passedData) {
+            const data = passedData || allRecords;
+            const search = document.getElementById('rawTableSearch').value.toLowerCase().trim();
+            const yearFilter = document.getElementById('rawTableYearFilter').value;
+
+            const filtered = data.filter(r => {
+                if (yearFilter !== 'ALL' && r.year !== yearFilter) return false;
+                if (search) {
+                    return r.client.toLowerCase().includes(search) || r.profitCenter.includes(search) || r.material.includes(search);
+                }
+                return true;
+            });
+
+            const tbody = document.getElementById('rawTableBody');
+            tbody.innerHTML = '';
+
+            filtered.slice(0, 50).forEach(r => { // Limitar a 50 no celular para performance excelente
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition text-xs">
+                        <td class="p-2.5 border-b">${r.year}</td>
+                        <td class="p-2.5 border-b font-medium">${r.month}</td>
+                        <td class="p-2.5 border-b font-semibold text-gray-700 max-w-xs truncate">${r.client}</td>
+                        <td class="p-2.5 border-b text-right font-semibold ${r.amount >= 0 ? 'text-blue-900' : 'text-rose-600'}">${formatBRL(r.amount)}</td>
+                        <td class="p-2.5 border-b font-mono">${r.profitCenter}</td>
+                        <td class="p-2.5 border-b text-gray-550">${r.docSales}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('rawTableCount').innerText = `Mostrando ${Math.min(50, filtered.length)} de ${filtered.length}`;
+        }
+
+        function handleFileSelected(year, input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                loadedFiles[year] = parseSapCsv(text);
+                
+                document.getElementById(`fileStatus${year}`).classList.remove('hidden');
+                document.getElementById(`fileLabel${year}`).innerText = `${file.name.substring(0, 20)}...`;
+
+                if (loadedFiles[2025] || loadedFiles[2026]) {
+                    document.getElementById('applyUploadsBtn').disabled = false;
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function parseSapCsv(csvText) {
+            const lines = csvText.split(/\r?\n/);
+            if (lines.length < 2) return [];
+
+            const header = lines[0];
+            const delimiter = header.includes(';') ? ';' : ',';
+            const columns = header.split(delimiter).map(c => c.trim().toLowerCase());
+
+            const mapIdx = (names) => {
+                return columns.findIndex(col => names.some(n => col.includes(n.toLowerCase())));
+            };
+
+            const idxYear = mapIdx(['exercício', 'year', 'gjahr']);
+            const idxMonth = mapIdx(['mês', 'month', 'monat']);
+            const idxClientName = mapIdx(['nome do cliente', 'customer name', 'name1']);
+            const idxAmount = mapIdx(['montante', 'amount', 'wrbtr', 'valor']);
+            const idxProfitCenter = mapIdx(['centro de lucro', 'profit center', 'prctr']);
+            const idxMaterial = mapIdx(['material', 'matnr']);
+            const idxDocSales = mapIdx(['documento de vendas', 'vbeln', 'vendas']);
+
+            const parsedRows = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const cells = [];
+                let current = '';
+                let insideQuotes = false;
+
+                for (let j = 0; j < line.length; j++) {
+                    const char = line[j];
+                    if (char === '"' || char === "'") {
+                        insideQuotes = !insideQuotes;
+                    } else if (char === delimiter && !insideQuotes) {
+                        cells.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                cells.push(current.trim());
+
+                if (cells.length < Math.max(idxYear, idxMonth, idxAmount)) continue;
+
+                let rawAmount = cells[idxAmount] || '0';
+                let multiplier = 1;
+                if (rawAmount.endsWith('-')) {
+                    multiplier = -1;
+                    rawAmount = rawAmount.slice(0, -1);
+                }
+
+                if (rawAmount.includes(',') && rawAmount.includes('.')) {
+                    rawAmount = rawAmount.replace(/\./g, '').replace(',', '.');
+                } else if (rawAmount.includes(',')) {
+                    rawAmount = rawAmount.replace(',', '.');
+                }
+
+                let amount = parseFloat(rawAmount.replace(/[^\d.-]/g, ''));
+                if (isNaN(amount)) amount = 0;
+                amount *= multiplier;
+
+                let monthVal = (cells[idxMonth] || '1').replace(/[^\d]/g, '');
+                monthVal = monthVal ? monthVal.padStart(2, '0') : '01';
+
+                parsedRows.push({
+                    year: (cells[idxYear] || '').replace(/[^\d]/g, ''),
+                    month: monthVal,
+                    client: cells[idxClientName] || 'Cliente Não Informado',
+                    amount: amount,
+                    profitCenter: cells[idxProfitCenter] || 'Sem Centro de Lucro',
+                    material: cells[idxMaterial] || 'Indefinido',
+                    docSales: cells[idxDocSales] || 'N/A'
+                });
+            }
+
+            return parsedRows;
+        }
+
+async function applyUploadedData() {
+
+    try {
+
+        const btn =
+            document.getElementById(
+                'applyUploadsBtn'
+            );
+
+        btn.disabled = true;
+        btn.innerText = 'Enviando...';
+
+        const file2025 =
+            document.getElementById(
+                'inputCSV2025'
+            ).files[0];
+
+        const file2026 =
+            document.getElementById(
+                'inputCSV2026'
+            ).files[0];
+
+        if (!file2025 && !file2026) {
+
+            alert(
+                'Selecione pelo menos um CSV.'
+            );
+
+            return;
+        }
+
+        if (file2025) {
+
+            const resp2025 =
+                await uploadCSV(
+                    file2025,
+                    2025
+                );
+
+            if (!resp2025.success) {
+
+                throw new Error(
+                    resp2025.error ||
+                    'Erro ao enviar 2025'
+                );
+            }
+        }
+
+        if (file2026) {
+
+            const resp2026 =
+                await uploadCSV(
+                    file2026,
+                    2026
+                );
+
+            if (!resp2026.success) {
+
+                throw new Error(
+                    resp2026.error ||
+                    'Erro ao enviar 2026'
+                );
+            }
+        }
+
+        localStorage.removeItem(
+            'pbi_revenue_dashboard_data'
+        );
+
+        localStorage.removeItem(
+            'pbi_revenue_dashboard_is_real'
+        );
+
+        alert(
+            'Arquivos enviados e JSON atualizado com sucesso.'
+        );
+
+        location.reload();
+
+    } catch(err) {
+
+        console.error(err);
+
+        alert(
+            'Falha:\n\n' +
+            err.message
+        );
+
+    } finally {
+
+        const btn =
+            document.getElementById(
+                'applyUploadsBtn'
+            );
+
+        btn.disabled = false;
+        btn.innerText =
+            'Aplicar Dados';
+    }
+}
+
+        function formatBRL(value) {
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+
+async function uploadCSV(file, year) {
+
+    const base64 = await fileToBase64(file);
+
+console.log({
+    nomeArquivo: `EXPORT_${year}.csv`,
+    tamanhoBase64: base64.length,
+    inicio: base64.substring(0,50)
+});
+    const response = await fetch(
+        APPS_SCRIPT_URL,
+        {
+            method: 'POST',
+            body: JSON.stringify({
+                nomeArquivo: `EXPORT_${year}.csv`,
+                base64: base64
+            })
+        }
+    );
+
+    return await response.json();
+}
+
+function fileToBase64(file) {
+
+    return new Promise(
+        (resolve,reject) => {
+
+        const reader =
+            new FileReader();
+
+        reader.onload = () => {
+
+            resolve(
+                reader.result
+                .split(',')[1]
+            );
+
+        };
+
+        reader.onerror =
+            reject;
+
+        reader.readAsDataURL(
+            file
+        );
+    });
+}
+
+function ativarModoReal() {
+
+    document.getElementById('dataSourceBadge').innerHTML = `
+        <i data-lucide="database" class="w-3 h-3 md:w-3.5 md:h-3.5"></i>
+        <span class="hidden xs:inline">Dados Reais</span>
+        <span class="inline xs:hidden">Reais</span>
+    `;
+
+    document.getElementById('dataSourceBadge').className =
+        "bg-green-950 text-green-300 text-[10px] md:text-xs px-2.5 py-1 rounded-full border border-green-800 flex items-center gap-1.5";
+
+    document.getElementById('demoBanner').classList.add('hidden');
+
+    lucide.createIcons();
+}
+
+
+    </script>
+</body>
+</html>
